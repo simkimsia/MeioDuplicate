@@ -44,3 +44,38 @@ There is a test case inside the plugin. However, i do not know how to write a te
 I only know how to do it provided your cakeapp already has a model like that and you need to put in the Model name yourself. 
 
 See the test case for more details under the commented portion.
+
+## Saving data to database
+
+Please note.
+
+Since this is an extension of MeioUpload, the validation rules and functions used in the callbacks established by MeioUpload are still valid.
+
+Hence if you wish to save the data AFTER running a duplicateImage($path), you need to do it by turning off the validate and callbacks option.
+
+Eg, 
+
+
+	<?php
+	
+	$duplicateSuccessful = $this->Image->duplicateImage($pathOfOriginalImage);
+
+	if ($duplicateSuccessful) {
+		// make some changes to data if you wish.
+		$this->Image->data['Image']['cover']      = true;
+
+
+		$data = $this->Image->data;
+
+		// because we are creating new Image so we need to run this command.
+		$this->Image->create();
+
+		// because the MeioUpload behavior will generate errors in this form
+		// [filename] => There were problems in uploading the file.
+		// due to the function uploadCheckUploadError, hence we need to set the validate to false
+		// we also need to set the callbacks to false because of the validations actions in the callbacks as well.
+		$result = $this->Image->save($data, array('validate'=>false,
+								 'callbacks'=>false));
+
+	}
+	?>
