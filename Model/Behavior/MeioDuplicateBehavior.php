@@ -5,39 +5,37 @@
  * This behavior extends jrbasso's MeioUpload 3.0
  * http://github.com/jrbasso/MeioUpload
  *
- * @author Kei Simone (kimcity@gmail.com)
+ * @author Sim Kim Sia (kimcity@gmail.com)
  * @package app
  * @subpackage app.models.behaviors
  * @filesource
  * @version 0.1
- * @lastmodified 2010-05-17
+ * @lastmodified 2011-09-29
  */
 App::import('Behavior', 'MeioUpload.MeioUpload');
-App::import('Core', array('File', 'Folder'));
+
+App::uses('Folder', 'Utility');
+App::uses('File', 'Utility');
 
 class MeioDuplicateBehavior extends MeioUploadBehavior {
-
-
 
 
 /**
  * Duplicate an existing file given a path to the file.
  *
- * @author Kei Simone
+ * @author Sim Kim Sia
  */
-	function duplicateImage(&$model, $img) {
+	public function duplicateImage(&$model, $img) {
 
 		// file must exist before proceeding
 		if (!file_exists($img)) {
 			return false;
 		}
 
-		$fileName = basename($img);
+		$fileName 	= basename($img);
 
-		$data =& $model->data;
-		$return = array();
-
-
+		$data 		= $model->data;
+		$return 	= array();
 
 		foreach ($this->__fields[$model->alias] as $fieldName => $options) {
 
@@ -45,25 +43,27 @@ class MeioDuplicateBehavior extends MeioUploadBehavior {
 			$this->_createFolders($options['dir'],array_keys($options['thumbsizes']));
 
 			// retrieve extension
-			list(, $ext) = $this->_splitFilenameAndExt($fileName);
+			list($file, $ext) = $this->_splitFilenameAndExt($fileName);
 
 			// fix the name
 			// if we do not use table, then we just overwrite the file else we change the filename from abc.jpg to abc-1.jpg for eg.
 			$fileName = $this->_fixDuplicateName($model, $fileName, $fieldName, $options['useTable']);
 
 			// path to save this particular duplicate
+			// we added the app_www_root to allow successful save
 			$saveAs = $options['dir'] . DS . $fileName;
-
-			// duplicate the file now.
-			$result = copy($img, $saveAs);
+		
+			// duplicate the file now in app's webroot folder
+			$result = copy($img, WWW_ROOT . $saveAs);
 
 			// if UNsuccessfully copied
 			if (!$result){
 				return false;
 			}
-
-			$pathToDestinationFile = WWW_ROOT . DS . $saveAs;
-
+			
+			// this must point to the one in app folder not in mainsite folder
+			$pathToDestinationFile = WWW_ROOT . $saveAs;
+			
 			// to ascertain that the file here is really an image file
 			// only suitable for >= PHP 5.3.0
 			$finfo = finfo_open(FILEINFO_MIME_TYPE); // return mime type ala mimetype extension
@@ -71,24 +71,24 @@ class MeioDuplicateBehavior extends MeioUploadBehavior {
 			finfo_close($finfo);
 
 			if (!empty($options['thumbsizes']) && !empty($options['allowedExt']) && in_array($type, $this->_imageTypes)) {
+				
 				$this->_createThumbnailsForDuplicate($model, $fieldName, $saveAs, $ext, $options);
 			}
 
 			// now we set the values to the model's data array in case the useTable is true.
 			// Update model data
 			if ($model->useTable !== false) {
-				$data[$model->alias][$options['fields']['dir']] = $options['dir'];
-				$data[$model->alias][$options['fields']['mimetype']] = $type;
-				$data[$model->alias][$options['fields']['filesize']] = filesize($pathToDestinationFile);
-				$data[$model->alias][$fieldName] = $fileName;
-
-				$this->data = $data;
+				$data[$model->alias][$options['fields']['dir']] 		= $options['dir'];
+				$data[$model->alias][$options['fields']['mimetype']] 	= $type;
+				$data[$model->alias][$options['fields']['filesize']] 	= filesize($pathToDestinationFile);
+				$data[$model->alias][$fieldName] 						= $fileName;
+				// now we put the file info back into ProductImage->data
+				$model->data = $data;
 			}
 
 		}
 
 		return true;
-
 
 	}
 
@@ -99,19 +99,21 @@ class MeioDuplicateBehavior extends MeioUploadBehavior {
  * @param string $fieldName
  * @param boolean $checkFile
  * @return void
- * @access protected
  */
-	function _fixDuplicateName(&$model, $fileName, $fieldName, $checkFile = true) {
-		list ($filename, $ext) = $this->_splitFilenameAndExt($fileName);
-		$filename = Inflector::slug($filename);
-		$i = 0;
-		$newFilename = $filename;
+	protected function _fixDuplicateName(&$model, $fileName, $fieldName, $checkFile = true) {
+		list ($filename, $ext) 	= $this->_splitFilenameAndExt($fileName);
+		$filename 				= Inflector::slug($filename, '-');
+
+		$i 						= 0;
+		$newFilename 			= $filename;
 
 		if ($checkFile) {
-			while (file_exists($this->__fields[$model->alias][$fieldName]['dir'] . DS . $newFilename . '.' . $ext)) {
+			while (file_exists(WWW_ROOT . $this->__fields[$model->alias][$fieldName]['dir'] . DS . $newFilename . '.' . $ext)) {
+			
 				$newFilename = $filename . '-' . $i++;
 			}
 		}
+		
 		return $newFilename . '.' . $ext;
 	}
 
@@ -125,12 +127,11 @@ class MeioDuplicateBehavior extends MeioUploadBehavior {
  * @param string $ext
  * @param array $options
  * @return void
- * @access protected
  */
-	function _createThumbnailsForDuplicate(&$model, $fieldName, $saveAs, $ext, $options) {
+	protected function _createThumbnailsForDuplicate(&$model, $fieldName, $saveAs, $ext, $options) {
 		foreach ($options['thumbsizes'] as $key => $value) {
 			// Generate the name for the thumbnail
-			$thumbSaveAs = $options['dir'] . DS . 'thumb' . DS . $key . DS . basename($saveAs);
+			$thumbSaveAs = WWW_ROOT . $options['dir'] . DS . 'thumb' . DS . $key . DS . basename($saveAs);
 
 			$params = array();
 			if (isset($value['width'])) {
