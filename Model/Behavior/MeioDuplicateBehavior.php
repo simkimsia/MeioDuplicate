@@ -40,7 +40,7 @@ class MeioDuplicateBehavior extends MeioUploadBehavior {
 		foreach ($this->__fields[$model->alias] as $fieldName => $options) {
 
 			//Create the appropriate directory and thumbnails directories.
-			$this->_createFolders($options['dir'],'thumb', array_keys($options['thumbsizes'], 0755));
+			$this->_createFolders($options['dir'],'thumb', array_keys($options['thumbsizes']), 0755);
 
 			// retrieve extension
 			list($file, $ext) = $this->_splitFilenameAndExt($fileName);
